@@ -49,9 +49,6 @@ import com.example.weatherapp.presentation.viewmodel.HomeViewModel
 import com.example.weatherapp.utils.Constants
 import com.example.weatherforecastapp.R
 
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -64,7 +61,7 @@ fun HomeScreen(
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = onNavigateToCamera) {
-                Icon(painterResource(R.drawable.camera), "Capture New Weather Photo",modifier = Modifier.size(40.dp))
+                Icon(painterResource(id = R.drawable.camera), contentDescription = "Capture New Weather Photo", modifier = Modifier.size(24.dp))
             }
         }
     ) { paddingValues ->
@@ -157,8 +154,9 @@ fun ImageHistoryCard(image: CapturedImageEntity, onDeleteClick: () -> Unit) {
                         tint = Color.Unspecified, // For drawable resources
                         modifier = Modifier.size(24.dp)
                     )
+                    // Display temperature from entity (which is in Celsius as per new logic)
                     Text(
-                        text = "${String.format("%.1f", image.temperature)}°C", // Assuming Celsius for display here
+                        text = "${String.format("%.1f", image.temperature)}°C",
                         fontSize = 18.sp,
                         modifier = Modifier.padding(start = 4.dp)
                     )

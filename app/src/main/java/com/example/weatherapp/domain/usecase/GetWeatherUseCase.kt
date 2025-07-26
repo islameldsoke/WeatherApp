@@ -7,7 +7,9 @@ import com.example.weatherapp.data.repository.WeatherRepository
 import com.example.weatherapp.domain.model.Weather
 import com.example.weatherapp.utils.LocationUtils
 
-
+/**
+ *
+ * For Example*/
 /**
  * Use case for fetching weather data.
  * This class encapsulates the business logic of getting the user's location
@@ -65,6 +67,6 @@ class GetWeatherUseCase(
         }
 
         // 4. Fetch weather data using the obtained coordinates
-        return weatherRepository.getCurrentWeather(lat, lon, isCelsius)
+        return weatherRepository.getCurrentWeather(lat, lon)
     }
 }

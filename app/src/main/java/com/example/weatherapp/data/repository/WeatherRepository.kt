@@ -12,28 +12,28 @@ class WeatherRepository(private val weatherApiService: WeatherApiService) {
 
     /**
      * Fetches current weather data for a given latitude and longitude.
+     * This method will always request temperature in metric units (Celsius) from the API.
+     *
      * @param lat Latitude.
      * @param lon Longitude.
-     * @param isCelsius True for Celsius, false for Fahrenheit.
      * @return A Result object containing Weather data on success, or an Exception on failure.
      */
     suspend fun getCurrentWeather(
         lat: Double,
-        lon: Double,
-        isCelsius: Boolean
+        lon: Double
     ): Result<Weather> = withContext(Dispatchers.IO) {
         try {
-            val units = if (isCelsius) "metric" else "imperial"
+            // Always request metric units (Celsius) from the API
             val response = weatherApiService.getCurrentWeather(
                 lat = lat,
                 lon = lon,
                 apiKey = Constants.OPEN_WEATHER_MAP_API_KEY,
-                units = units
+                units = "metric" // Always fetch in Celsius
             )
             // Map the remote WeatherResponse to our domain Weather model
             Result.success(
                 Weather(
-                    temperature = response.main.temp,
+                    temperature = response.main.temp, // This will be in Celsius
                     humidity = response.main.humidity,
                     windSpeed = response.wind.speed,
                     description = response.weather.firstOrNull()?.description ?: "N/A",

@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 
 
 
+
 class CameraViewModel(
     private val weatherRepository: WeatherRepository,
     private val imageRepository: ImageRepository,
@@ -27,7 +28,7 @@ class CameraViewModel(
 ) : ViewModel() {
 
     // UI State for weather data
-    private val _weatherState = MutableStateFlow<WeatherState>(WeatherState.Idle) // Changed to Idle
+    private val _weatherState = MutableStateFlow<WeatherState>(WeatherState.Idle)
     val weatherState: StateFlow<WeatherState> = _weatherState.asStateFlow()
 
     // UI State for temperature unit
@@ -38,7 +39,8 @@ class CameraViewModel(
     private val _imageSaveState = MutableStateFlow<ImageSaveState>(ImageSaveState.Idle)
     val imageSaveState: StateFlow<ImageSaveState> = _imageSaveState.asStateFlow()
 
-    private var lastFetchedWeather: Weather? = null // Store the last successfully fetched weather
+    // Store the last successfully fetched weather in its original unit (Celsius)
+    private var lastFetchedWeatherCelsius: Weather? = null
 
     fun fetchWeather(context: Context) {
         _weatherState.value = WeatherState.Loading
@@ -73,10 +75,12 @@ class CameraViewModel(
 
     private fun fetchWeatherFromCoordinates(lat: Double, lon: Double) {
         viewModelScope.launch {
-            val result = weatherRepository.getCurrentWeather(lat, lon, _isCelsius.value)
+            // Always fetch in Celsius from the repository
+            val result = weatherRepository.getCurrentWeather(lat, lon)
             result.onSuccess { weather ->
-                lastFetchedWeather = weather // Store for image overlay
-                _weatherState.value = WeatherState.Success(weather)
+                lastFetchedWeatherCelsius = weather // Store the original Celsius weather
+                // Update UI state with potentially converted temperature for display
+                updateWeatherStateForDisplay(weather)
             }.onFailure { e ->
                 _weatherState.value = WeatherState.Error(e.message ?: "Failed to fetch weather data.")
             }
@@ -84,30 +88,39 @@ class CameraViewModel(
     }
 
     fun toggleTemperatureUnit() {
-        _isCelsius.value = !_isCelsius.value
-        // If we have last fetched weather, re-calculate temperature for display
-        lastFetchedWeather?.let { weather ->
-            val convertedTemp = if (_isCelsius.value) {
-                (weather.temperature - 32) / 1.8 // F to C
-            } else {
-                (weather.temperature * 1.8) + 32 // C to F
-            }
-            _weatherState.value = WeatherState.Success(weather.copy(temperature = convertedTemp))
+        _isCelsius.value = !_isCelsius.value // Toggle the display unit preference
+        lastFetchedWeatherCelsius?.let { weather ->
+            updateWeatherStateForDisplay(weather) // Re-update display based on new unit
         }
-        // Re-fetch weather if no lastFetchedWeather or if we want updated data
-        // For simplicity, we just convert the last fetched. A real app might re-fetch.
     }
 
+    /**
+     * Helper function to update the weatherState with the temperature
+     * converted to the currently selected display unit (_isCelsius).
+     */
+    private fun updateWeatherStateForDisplay(weatherCelsius: Weather) {
+        val temperatureToDisplay = if (_isCelsius.value) {
+            weatherCelsius.temperature // Already in Celsius
+        } else {
+            // Convert Celsius to Fahrenheit
+            (weatherCelsius.temperature * 9 / 5) + 32
+        }
+        // Create a new Weather object for display with the converted temperature
+        _weatherState.value = WeatherState.Success(weatherCelsius.copy(temperature = temperatureToDisplay))
+    }
+
+
     fun saveImageWithWeather(originalBitmap: Bitmap) {
-        val currentWeather = (weatherState.value as? WeatherState.Success)?.weather
-        if (currentWeather == null) {
+        val currentWeatherForSave = lastFetchedWeatherCelsius // Always save the original Celsius value
+        if (currentWeatherForSave == null) {
             _imageSaveState.value = ImageSaveState.Error("No weather data available to save with image.")
             return
         }
 
         _imageSaveState.value = ImageSaveState.Saving
         viewModelScope.launch {
-            imageRepository.saveCapturedImageWithWeather(originalBitmap, currentWeather, _isCelsius.value)
+            // Pass the original Celsius weather and the *current display preference* for overlay text
+            imageRepository.saveCapturedImageWithWeather(originalBitmap, currentWeatherForSave, _isCelsius.value)
                 .onSuccess {
                     _imageSaveState.value = ImageSaveState.Saved
                 }
@@ -130,9 +143,9 @@ class CameraViewModel(
 
     // Sealed class to represent different states of weather data
     sealed class WeatherState {
-        object Idle : WeatherState() // Added Idle state
+        object Idle : WeatherState()
         object Loading : WeatherState()
-        data class Success(val weather: Weather) : WeatherState()
+        data class Success(val weather: Weather) : WeatherState() // Weather object here contains display temp
         data class Error(val message: String) : WeatherState()
     }
 
